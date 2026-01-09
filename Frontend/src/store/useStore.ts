@@ -45,6 +45,7 @@ interface StudioState {
   setSyncStatus: (status: 'synced' | 'syncing' | 'error') => void;
   toggleSidebar: () => void;
   toggleCodePanel: () => void;
+  updateNodeParent: (nodeId: string, parentId: string | null) => void;
   generateTerraform: () => void;
 }
 
@@ -98,13 +99,18 @@ provider "aws" {
 
 `;
 
-  nodes.forEach((node) => {
+  // First, generate VPC resources (parent containers)
+  const vpcNodes = nodes.filter(node => 
+    node.data?.terraformType === 'aws_vpc' || 
+    node.data?.type === 'vpc' || 
+    node.type === 'vpcGroup'
+  );
+
+  vpcNodes.forEach((node) => {
     const resourceData = node.data as { label: string; terraformType: string; resourceType: string };
     const resourceName = resourceData.label.toLowerCase().replace(/[^a-z0-9]/g, '_');
     
-    switch (resourceData.terraformType) {
-      case 'aws_vpc':
-        code += `resource "aws_vpc" "${resourceName}" {
+    code += `resource "aws_vpc" "${resourceName}" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
   enable_dns_support   = true
@@ -117,6 +123,31 @@ provider "aws" {
 }
 
 `;
+  });
+
+  // Then generate child resources that belong to VPCs
+  const childNodes = nodes.filter(node => node.parentNode);
+  const regularNodes = nodes.filter(node => !node.parentNode && 
+    node.data?.terraformType !== 'aws_vpc' && 
+    node.data?.type !== 'vpc' && 
+    node.type !== 'vpcGroup'
+  );
+
+  // Process all non-VPC nodes
+  [...regularNodes, ...childNodes].forEach((node) => {
+    const resourceData = node.data as { label: string; terraformType: string; resourceType: string };
+    const resourceName = resourceData.label.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    
+    // Determine if this resource belongs to a VPC
+    const parentVpc = node.parentNode ? 
+      nodes.find(parent => parent.id === node.parentNode && 
+        (parent.data?.terraformType === 'aws_vpc' || 
+         parent.data?.type === 'vpc' || 
+         parent.type === 'vpcGroup')) : null;
+    
+    switch (resourceData.terraformType) {
+      case 'aws_vpc':
+        // Already handled above
         break;
       case 'aws_subnet':
         code += `resource "aws_subnet" "${resourceName}" {
@@ -138,6 +169,7 @@ provider "aws" {
         code += `resource "aws_instance" "${resourceName}" {
   ami           = "ami-0c55b159cbfafe1f0"
   instance_type = "t3.micro"
+  ${parentVpc ? 'vpc_security_group_ids = [aws_security_group.default.id]' : ''}
 
   tags = {
     Name        = "${resourceData.label}"
@@ -157,6 +189,10 @@ provider "aws" {
   runtime          = "nodejs18.x"
   memory_size      = 128
   timeout          = 30
+  ${parentVpc ? 'vpc_config {' : ''}
+  ${parentVpc ? '  subnet_ids         = [aws_subnet.main.id]' : ''}
+  ${parentVpc ? '  security_group_ids = [aws_security_group.default.id]' : ''}
+  ${parentVpc ? '}' : ''}
 
   tags = {
     Name        = "${resourceData.label}"
@@ -199,6 +235,8 @@ resource "aws_s3_bucket_versioning" "${resourceName}_versioning" {
   username             = "admin"
   password             = "CHANGE_ME_SECURE_PASSWORD"
   skip_final_snapshot  = true
+  ${parentVpc ? 'vpc_security_group_ids = [aws_security_group.default.id]' : ''}
+  ${parentVpc ? 'db_subnet_group_name   = aws_db_subnet_group.default.name' : ''}
 
   tags = {
     Name        = "${resourceData.label}"
@@ -233,7 +271,7 @@ resource "aws_s3_bucket_versioning" "${resourceName}_versioning" {
         code += `resource "aws_security_group" "${resourceName}" {
   name        = "${resourceName}"
   description = "Security group managed by CloudArchitect"
-  vpc_id      = aws_vpc.main.id
+  ${parentVpc ? 'vpc_id      = aws_vpc.main.id' : 'vpc_id      = aws_vpc.main.id'}
 
   ingress {
     from_port   = 443
@@ -296,6 +334,7 @@ resource "aws_s3_bucket_versioning" "${resourceName}_versioning" {
       default:
         code += `# Resource: ${resourceData.label}
 # Type: ${resourceData.terraformType}
+# Parent VPC: ${parentVpc ? parentVpc.data?.label : 'None'}
 # TODO: Add configuration
 
 `;
@@ -337,6 +376,16 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   setSyncStatus: (status) => set({ syncStatus: status }),
   toggleSidebar: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
   toggleCodePanel: () => set((state) => ({ isCodePanelCollapsed: !state.isCodePanelCollapsed })),
+  updateNodeParent: (nodeId: string, parentId: string | null) => {
+    set(state => ({
+      nodes: state.nodes.map(node => 
+        node.id === nodeId 
+          ? { ...node, parentNode: parentId, extent: parentId ? 'parent' as const : undefined } 
+          : node
+      )
+    }));
+    get().generateTerraform();
+  },
   generateTerraform: () => {
     set({ syncStatus: 'syncing' });
     const code = generateTerraformFromNodes(get().nodes);

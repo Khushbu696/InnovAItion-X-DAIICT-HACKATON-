@@ -1,9 +1,11 @@
 import React, { memo } from 'react';
-import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
+import { Handle, Position, NodeProps, useReactFlow, useStoreApi } from 'reactflow';
 import { useStudioStore } from '@/store/useStore';
 
 const VPCGroupNode = ({ id, data, isConnectable }: NodeProps) => {
-  const { getNodes, setNodes } = useReactFlow();
+  const { getNodes } = useReactFlow();
+  const { updateNodeParent } = useStudioStore();
+  const store = useStoreApi();
 
   const handleDragOver = (event: React.DragEvent) => {
     event.preventDefault();
@@ -13,19 +15,16 @@ const VPCGroupNode = ({ id, data, isConnectable }: NodeProps) => {
   const handleDrop = (event: React.DragEvent) => {
     event.preventDefault();
     
-    // Get nodes using the react flow hook
-    const allNodes = getNodes();
-    const draggingNode = allNodes.find(n => n.dragging);
+    const reactFlowBounds = (event.target as Element).closest('.react-flow')?.getBoundingClientRect();
+    
+    if (!reactFlowBounds) return;
+
+    const { nodeInternals } = store.getState();
+    const draggingNode = Array.from(nodeInternals.values()).find(n => n.dragging);
 
     if (draggingNode && draggingNode.id !== id) {
-      // Update the dropped node to have this VPC as parent
-      setNodes(prevNodes => 
-        prevNodes.map(n => 
-          n.id === draggingNode.id 
-            ? { ...n, parentNode: id, extent: 'parent' as const } 
-            : n
-        )
-      );
+      // Update the dropped node to have this VPC as parent using the store function
+      updateNodeParent(draggingNode.id, id);
     }
   };
 

@@ -24,6 +24,8 @@ import { AWSResource } from '@/store/useStore';
 
 const nodeTypes = {
   awsNode: AWSNode,
+  vpcGroup: VPCGroupNode,
+  cloudComponent: CloudComponentNode,
 };
 
 let id = 0;
@@ -48,18 +50,37 @@ const DiagramCanvas: React.FC = () => {
   
   const onConnect = useCallback(
     (params: Connection) => {
+      // Determine connection type based on node types
+      const sourceNode = localNodes.find(node => node.id === params.source);
+      const targetNode = localNodes.find(node => node.id === params.target);
+      
+      let connectionType = 'private'; // default
+      
+      if (sourceNode && targetNode) {
+        // If connecting to or from a database node
+        if (sourceNode.data.resourceType === 'rds' || targetNode.data.resourceType === 'rds') {
+          connectionType = 'database';
+        } 
+        // If connecting to internet gateway or similar public resource
+        else if (sourceNode.data.resourceType === 'gateway' || targetNode.data.resourceType === 'gateway') {
+          connectionType = 'public';
+        }
+      }
+      
       setLocalEdges((eds) =>
         addEdge(
           {
             ...params,
+            type: 'default',
+            data: { connectionType },
             animated: true,
-            style: { stroke: 'hsl(190, 95%, 55%)', strokeWidth: 2 },
+            style: { strokeWidth: 2 },
           },
           eds
         )
       );
     },
-    [setLocalEdges]
+    [setLocalEdges, localNodes]
   );
   
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -81,9 +102,15 @@ const DiagramCanvas: React.FC = () => {
         y: event.clientY - bounds.top,
       });
       
+      // Determine node type based on resource
+      let nodeType = 'cloudComponent'; // Default to new cloud component
+      if (resource.type === 'vpc' || resource.name.toLowerCase().includes('vpc')) {
+        nodeType = 'vpcGroup';
+      }
+      
       const newNode: Node = {
         id: getId(),
-        type: 'awsNode',
+        type: nodeType,
         position,
         data: {
           label: resource.name,
@@ -91,6 +118,7 @@ const DiagramCanvas: React.FC = () => {
           icon: resource.icon,
           terraformType: resource.terraformType,
           category: resource.category,
+          type: resource.type,
         },
       };
       
@@ -134,6 +162,9 @@ const DiagramCanvas: React.FC = () => {
         defaultEdgeOptions={{
           animated: true,
           style: { stroke: 'hsl(190, 95%, 55%)', strokeWidth: 2 },
+        }}
+        edgeTypes={{
+          default: CustomEdge,
         }}
         className="bg-background"
       >
