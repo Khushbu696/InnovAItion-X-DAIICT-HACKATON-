@@ -146,6 +146,20 @@ export const projectApi = {
     });
   },
 
+  // Generate Terraform code from project
+  generateTerraform: async (id: string): Promise<any> => {
+    return apiRequest<any>(`/projects/${id}/generate-terraform`, {
+      method: 'POST',
+    });
+  },
+
+  // Run security audit on project's Terraform code
+  runSecurityAudit: async (id: string): Promise<any> => {
+    return apiRequest<any>(`/projects/${id}/run-security-audit`, {
+      method: 'POST',
+    });
+  },
+
   // Delete a project
   delete: async (id: string): Promise<{ success: boolean; message: string }> => {
     return apiRequest<{ success: boolean; message: string }>(`/projects/${id}`, {

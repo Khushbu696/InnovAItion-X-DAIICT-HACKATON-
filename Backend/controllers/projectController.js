@@ -166,6 +166,125 @@ export const updateProject = async (req, res) => {
   }
 };
 
+// @desc    Generate Terraform code from project
+// @route   POST /api/projects/:id/generate-terraform
+// @access  Private
+export const generateTerraformFromProject = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      });
+    }
+
+    // Check if project belongs to the user
+    if (project.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. This project does not belong to you.'
+      });
+    }
+
+    // Import IaCEngine functions
+    const { processProjectFromDB } = await import('../../IaCEngine.js');
+    
+    // Process the project to generate Terraform code
+    const result = processProjectFromDB(project);
+    
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'Failed to generate Terraform code',
+        error: result.error
+      });
+    }
+    
+    // Optionally update the project with the generated code
+    project.generatedCode = result.terraformCode;
+    await project.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Terraform code generated successfully',
+      terraformCode: result.terraformCode,
+      projectInfo: {
+        id: project._id,
+        name: project.projectName,
+        nodeCount: result.nodeIdCount,
+        createdAt: result.createdAt,
+        updatedAt: result.updatedAt
+      }
+    });
+  } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid project ID'
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: 'Server error while generating Terraform code',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Run security audit on Terraform code
+// @route   POST /api/projects/:id/run-security-audit
+// @access  Private
+export const runSecurityAuditOnProject = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      });
+    }
+
+    // Check if project belongs to the user
+    if (project.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. This project does not belong to you.'
+      });
+    }
+
+    // Import IaCEngine functions
+    const { runSecurityAudit } = await import('../../IaCEngine.js');
+    
+    // Run security audit on the generated Terraform code
+    const auditResult = runSecurityAudit(project.generatedCode || '');
+
+    res.status(200).json({
+      success: true,
+      message: 'Security audit completed successfully',
+      auditResult,
+      projectInfo: {
+        id: project._id,
+        name: project.projectName,
+      }
+    });
+  } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid project ID'
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: 'Server error while running security audit',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Delete project
 // @route   DELETE /api/projects/:id
 // @access  Private
