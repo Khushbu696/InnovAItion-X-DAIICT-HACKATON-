@@ -45,7 +45,7 @@ const VPCIcon = () => (
 
 const CloudComponentNode = ({ id, data, isConnectable }: NodeProps) => {
   const [hovered, setHovered] = useState(false);
-  const { label = 'AWS Resource', type = 'ec2', status = 'running' } = data;
+  const { label = 'AWS Resource', type = 'ec2', status = 'running', config = {} } = data;
 
   // Get appropriate icon based on type
   const renderIcon = () => {
@@ -80,9 +80,25 @@ const CloudComponentNode = ({ id, data, isConnectable }: NodeProps) => {
     }
   };
 
+  // Get resource details based on type
+  const getResourceDetails = () => {
+    switch (type.toLowerCase()) {
+      case 'ec2':
+        return `Type: ${config.instance_type || 't3.micro'}`;
+      case 's3':
+        return `Bucket: ${config.bucket || 'N/A'}`;
+      case 'rds':
+        return `${config.engine || 'postgres'} on ${config.instance_class || 'db.t3.micro'}`;
+      case 'lambda':
+        return `${config.runtime || 'python3.9'} | ${config.memory_size || 128}MB`;
+      default:
+        return '';
+    }
+  };
+
   return (
     <div 
-      className={`bg-white border-2 rounded-lg shadow-md p-3 flex flex-col items-center min-w-[120px] transition-all duration-200 ${
+      className={`bg-white border-2 rounded-lg shadow-md p-3 flex flex-col items-center min-w-[140px] transition-all duration-200 ${
         hovered ? 'shadow-lg scale-105' : 'shadow-sm'
       }`}
       onMouseEnter={() => setHovered(true)}
@@ -104,6 +120,11 @@ const CloudComponentNode = ({ id, data, isConnectable }: NodeProps) => {
       {/* Label */}
       <div className="text-center text-sm font-medium text-gray-800 truncate w-full">
         {label}
+      </div>
+      
+      {/* Resource details */}
+      <div className="text-center text-xs text-gray-500 mt-1 truncate w-full">
+        {getResourceDetails()}
       </div>
       
       {/* Handles for connections */}

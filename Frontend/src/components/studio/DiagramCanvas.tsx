@@ -104,9 +104,73 @@ const DiagramCanvas: React.FC = () => {
       
       // Determine node type based on resource
       let nodeType = 'cloudComponent'; // Default to new cloud component
-      if (resource.type === 'vpc' || resource.name.toLowerCase().includes('vpc')) {
+      if (resource.id === 'vpc' || resource.name.toLowerCase().includes('vpc')) {
         nodeType = 'vpcGroup';
       }
+      
+      // Create detailed resource configuration based on resource type
+      const resourceConfig: Record<string, any> = {
+        'ec2': {
+          ami: 'ami-0c55b159cbfafe1f0', // Amazon Linux 2
+          instance_type: 't3.micro',
+          key_name: '',
+          vpc_security_group_ids: [],
+          subnet_id: '',
+        },
+        's3': {
+          bucket: resource.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(),
+          acl: 'private',
+          versioning: { enabled: true },
+        },
+        'rds': {
+          engine: 'postgres',
+          engine_version: '15.4',
+          instance_class: 'db.t3.micro',
+          allocated_storage: 20,
+          max_allocated_storage: 100,
+          storage_type: 'gp2',
+          db_name: 'mydb',
+          username: 'admin',
+          password: '',
+          skip_final_snapshot: true,
+        },
+        'lambda': {
+          filename: 'lambda_function.zip',
+          function_name: resource.name.toLowerCase().replace(/\s+/g, '_'),
+          role: '',
+          handler: 'index.handler',
+          runtime: 'python3.9',
+          timeout: 30,
+          memory_size: 128,
+        },
+        'vpc': {
+          cidr_block: '10.0.0.0/16',
+          enable_dns_hostnames: true,
+          enable_dns_support: true,
+        },
+        'subnet': {
+          cidr_block: '10.0.1.0/24',
+          availability_zone: 'us-east-1a',
+        },
+        'sg': {
+          name: resource.name.toLowerCase().replace(/\s+/g, '-'),
+          description: `Security group for ${resource.name}`,
+        },
+        'elb': {
+          name: resource.name.replace(/\s+/g, '-'),
+          internal: false,
+          load_balancer_type: 'application',
+        },
+        'dynamodb': {
+          name: resource.name.replace(/\s+/g, '-'),
+          billing_mode: 'PAY_PER_REQUEST',
+          hash_key: 'id',
+        },
+        'sqs': {
+          name: resource.name.replace(/\s+/g, '-'),
+          visibility_timeout_seconds: 30,
+        }
+      };
       
       const newNode: Node = {
         id: getId(),
@@ -118,7 +182,8 @@ const DiagramCanvas: React.FC = () => {
           icon: resource.icon,
           terraformType: resource.terraformType,
           category: resource.category,
-          type: resource.type,
+          type: resource.id,
+          config: resourceConfig[resource.id] || {},
         },
       };
       

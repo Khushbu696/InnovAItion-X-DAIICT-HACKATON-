@@ -107,13 +107,14 @@ provider "aws" {
   );
 
   vpcNodes.forEach((node) => {
-    const resourceData = node.data as { label: string; terraformType: string; resourceType: string };
+    const resourceData = node.data as { label: string; terraformType: string; resourceType: string; config?: any };
     const resourceName = resourceData.label.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const config = resourceData.config || {};
     
     code += `resource "aws_vpc" "${resourceName}" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_hostnames = true
-  enable_dns_support   = true
+  cidr_block           = "${config.cidr_block || '10.0.0.0/16'}"
+  enable_dns_hostnames = ${config.enable_dns_hostnames || true}
+  enable_dns_support   = ${config.enable_dns_support || true}
 
   tags = {
     Name        = "${resourceData.label}"
@@ -135,7 +136,7 @@ provider "aws" {
 
   // Process all non-VPC nodes
   [...regularNodes, ...childNodes].forEach((node) => {
-    const resourceData = node.data as { label: string; terraformType: string; resourceType: string };
+    const resourceData = node.data as { label: string; terraformType: string; resourceType: string; type: string; config?: any };
     const resourceName = resourceData.label.toLowerCase().replace(/[^a-z0-9]/g, '_');
     
     // Determine if this resource belongs to a VPC
@@ -145,6 +146,9 @@ provider "aws" {
          parent.data?.type === 'vpc' || 
          parent.type === 'vpcGroup')) : null;
     
+    // Get the resource configuration
+    const config = resourceData.config || {};
+    
     switch (resourceData.terraformType) {
       case 'aws_vpc':
         // Already handled above
@@ -152,8 +156,8 @@ provider "aws" {
       case 'aws_subnet':
         code += `resource "aws_subnet" "${resourceName}" {
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = "us-east-1a"
+  cidr_block              = "${config.cidr_block || '10.0.1.0/24'}"
+  availability_zone       = "${config.availability_zone || 'us-east-1a'}"
   map_public_ip_on_launch = true
 
   tags = {
@@ -167,9 +171,11 @@ provider "aws" {
         break;
       case 'aws_instance':
         code += `resource "aws_instance" "${resourceName}" {
-  ami           = "ami-0c55b159cbfafe1f0"
-  instance_type = "t3.micro"
-  ${parentVpc ? 'vpc_security_group_ids = [aws_security_group.default.id]' : ''}
+  ami           = "${config.ami || 'ami-0c55b159cbfafe1f0'}"
+  instance_type = "${config.instance_type || 't3.micro'}"
+  key_name      = "${config.key_name || ''}"
+  ${parentVpc ? `vpc_security_group_ids = [aws_security_group.default.id]
+  subnet_id              = aws_subnet.main.id` : ''}
 
   tags = {
     Name        = "${resourceData.label}"
@@ -182,17 +188,17 @@ provider "aws" {
         break;
       case 'aws_lambda_function':
         code += `resource "aws_lambda_function" "${resourceName}" {
-  filename         = "lambda_function.zip"
-  function_name    = "${resourceName}"
-  role             = aws_iam_role.lambda_role.arn
-  handler          = "index.handler"
-  runtime          = "nodejs18.x"
-  memory_size      = 128
-  timeout          = 30
-  ${parentVpc ? 'vpc_config {' : ''}
-  ${parentVpc ? '  subnet_ids         = [aws_subnet.main.id]' : ''}
-  ${parentVpc ? '  security_group_ids = [aws_security_group.default.id]' : ''}
-  ${parentVpc ? '}' : ''}
+  filename         = "${config.filename || 'lambda_function.zip'}"
+  function_name    = "${config.function_name || resourceName}"
+  role             = "${config.role || ''}"
+  handler          = "${config.handler || 'index.handler'}"
+  runtime          = "${config.runtime || 'python3.9'}"
+  timeout          = ${config.timeout || 30}
+  memory_size      = ${config.memory_size || 128}
+  ${parentVpc ? `vpc_config {
+    subnet_ids         = [aws_subnet.main.id]
+    security_group_ids = [aws_security_group.default.id]
+  }` : ''}
 
   tags = {
     Name        = "${resourceData.label}"
@@ -204,8 +210,9 @@ provider "aws" {
 `;
         break;
       case 'aws_s3_bucket':
+        const bucketName = config.bucket || `${resourceName}-bucket-${Date.now()}`;
         code += `resource "aws_s3_bucket" "${resourceName}" {
-  bucket = "${resourceName}-bucket"
+  bucket = "${bucketName}"
 
   tags = {
     Name        = "${resourceData.label}"
@@ -217,7 +224,7 @@ provider "aws" {
 resource "aws_s3_bucket_versioning" "${resourceName}_versioning" {
   bucket = aws_s3_bucket.${resourceName}.id
   versioning_configuration {
-    status = "Enabled"
+    status = "${config.versioning?.enabled ? 'Enabled' : 'Suspended'}"
   }
 }
 
@@ -225,18 +232,18 @@ resource "aws_s3_bucket_versioning" "${resourceName}_versioning" {
         break;
       case 'aws_db_instance':
         code += `resource "aws_db_instance" "${resourceName}" {
-  identifier           = "${resourceName}"
-  allocated_storage    = 20
-  storage_type         = "gp3"
-  engine               = "postgres"
-  engine_version       = "15.4"
-  instance_class       = "db.t3.micro"
-  db_name              = "mydb"
-  username             = "admin"
-  password             = "CHANGE_ME_SECURE_PASSWORD"
-  skip_final_snapshot  = true
-  ${parentVpc ? 'vpc_security_group_ids = [aws_security_group.default.id]' : ''}
-  ${parentVpc ? 'db_subnet_group_name   = aws_db_subnet_group.default.name' : ''}
+  identifier                = "${config.identifier || resourceName}"
+  allocated_storage         = ${config.allocated_storage || 20}
+  max_allocated_storage     = ${config.max_allocated_storage || 100}
+  storage_type              = "${config.storage_type || 'gp2'}"
+  engine                    = "${config.engine || 'postgres'}"
+  engine_version            = "${config.engine_version || '15.4'}"
+  instance_class            = "${config.instance_class || 'db.t3.micro'}"
+  db_name                   = "${config.db_name || 'mydb'}"
+  username                  = "${config.username || 'admin'}"
+  password                  = "${config.password || 'CHANGEME'}"
+  skip_final_snapshot       = ${config.skip_final_snapshot || true}
+  ${parentVpc ? `vpc_security_group_ids = [aws_security_group.default.id]` : ''}
 
   tags = {
     Name        = "${resourceData.label}"
@@ -249,12 +256,12 @@ resource "aws_s3_bucket_versioning" "${resourceName}_versioning" {
         break;
       case 'aws_dynamodb_table':
         code += `resource "aws_dynamodb_table" "${resourceName}" {
-  name           = "${resourceName}"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "id"
+  name           = "${config.name || resourceName}"
+  billing_mode   = "${config.billing_mode || 'PAY_PER_REQUEST'}"
+  hash_key       = "${config.hash_key || 'id'}"
 
   attribute {
-    name = "id"
+    name = "${config.hash_key || 'id'}"
     type = "S"
   }
 
@@ -269,8 +276,8 @@ resource "aws_s3_bucket_versioning" "${resourceName}_versioning" {
         break;
       case 'aws_security_group':
         code += `resource "aws_security_group" "${resourceName}" {
-  name        = "${resourceName}"
-  description = "Security group managed by CloudArchitect"
+  name        = "${config.name || resourceName}"
+  description = "${config.description || `Security group for ${resourceData.label}`}"
   ${parentVpc ? 'vpc_id      = aws_vpc.main.id' : 'vpc_id      = aws_vpc.main.id'}
 
   ingress {
@@ -296,14 +303,13 @@ resource "aws_s3_bucket_versioning" "${resourceName}_versioning" {
 
 `;
         break;
-      case 'aws_api_gateway_rest_api':
-        code += `resource "aws_api_gateway_rest_api" "${resourceName}" {
-  name        = "${resourceName}"
-  description = "API Gateway managed by CloudArchitect"
-
-  endpoint_configuration {
-    types = ["REGIONAL"]
-  }
+      case 'aws_lb':
+        code += `resource "aws_lb" "${resourceName}" {
+  name               = "${config.name || resourceName}"
+  internal           = ${config.internal || false}
+  load_balancer_type = "${config.load_balancer_type || 'application'}"
+  security_groups    = [aws_security_group.default.id]
+  subnets            = [aws_subnet.main.id]
 
   tags = {
     Name        = "${resourceData.label}"
@@ -316,11 +322,9 @@ resource "aws_s3_bucket_versioning" "${resourceName}_versioning" {
         break;
       case 'aws_sqs_queue':
         code += `resource "aws_sqs_queue" "${resourceName}" {
-  name                       = "${resourceName}"
-  delay_seconds              = 0
-  max_message_size           = 262144
-  message_retention_seconds  = 345600
-  visibility_timeout_seconds = 30
+  name                              = "${config.name || resourceName}.fifo"
+  fifo_queue                        = true
+  visibility_timeout_seconds        = ${config.visibility_timeout_seconds || 30}
 
   tags = {
     Name        = "${resourceData.label}"
@@ -335,6 +339,7 @@ resource "aws_s3_bucket_versioning" "${resourceName}_versioning" {
         code += `# Resource: ${resourceData.label}
 # Type: ${resourceData.terraformType}
 # Parent VPC: ${parentVpc ? parentVpc.data?.label : 'None'}
+# Configuration: ${JSON.stringify(config, null, 2)}
 # TODO: Add configuration
 
 `;
