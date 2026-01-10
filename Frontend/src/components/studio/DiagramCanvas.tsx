@@ -51,23 +51,96 @@ const DiagramCanvas: React.FC = () => {
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
   const [localEdges, setLocalEdges, onEdgesChange] = useEdgesState(edges);
   
-  // Sync store nodes to local state when store changes
-  useEffect(() => {
-    setLocalNodes(nodes);
-  }, [nodes, setLocalNodes]);
+  // Track if we're updating from store to prevent circular updates
+  const isUpdatingFromStoreRef = React.useRef(false);
+  const lastSyncedNodesRef = React.useRef<Node[]>(nodes);
+  const lastSyncedEdgesRef = React.useRef<Edge[]>(edges);
+  const isInitializedRef = React.useRef(false);
   
-  // Sync store edges to local state when store changes
-  useEffect(() => {
-    setLocalEdges(edges);
-  }, [edges, setLocalEdges]);
-  
+  // Initialize local state from store on mount
   React.useEffect(() => {
-    setNodes(localNodes);
-  }, [localNodes, setNodes]);
+    if (!isInitializedRef.current) {
+      setLocalNodes(nodes);
+      setLocalEdges(edges);
+      lastSyncedNodesRef.current = nodes;
+      lastSyncedEdgesRef.current = edges;
+      isInitializedRef.current = true;
+    }
+  }, []);
   
+  // Helper to check if nodes are different (by ID and position)
+  const nodesChanged = React.useCallback((a: Node[], b: Node[]) => {
+    if (a.length !== b.length) return true;
+    const aIds = new Set(a.map(n => n.id));
+    const bIds = new Set(b.map(n => n.id));
+    if (aIds.size !== bIds.size) return true;
+    for (const node of a) {
+      const other = b.find(n => n.id === node.id);
+      if (!other) return true;
+      if (node.position.x !== other.position.x || node.position.y !== other.position.y) {
+        return true;
+      }
+    }
+    return false;
+  }, []);
+  
+  // Helper to check if edges are different
+  const edgesChanged = React.useCallback((a: Edge[], b: Edge[]) => {
+    if (a.length !== b.length) return true;
+    const aKeys = new Set(a.map(e => `${e.source}-${e.target}`));
+    const bKeys = new Set(b.map(e => `${e.source}-${e.target}`));
+    return aKeys.size !== bKeys.size || ![...aKeys].every(k => bKeys.has(k));
+  }, []);
+  
+  // Sync store nodes to local state when store changes externally (e.g., from AI generation)
+  useEffect(() => {
+    if (isUpdatingFromStoreRef.current) return;
+    
+    if (nodesChanged(nodes, lastSyncedNodesRef.current)) {
+      isUpdatingFromStoreRef.current = true;
+      setLocalNodes(nodes);
+      lastSyncedNodesRef.current = nodes;
+      
+      setTimeout(() => {
+        isUpdatingFromStoreRef.current = false;
+      }, 50);
+    }
+  }, [nodes, setLocalNodes, nodesChanged]);
+  
+  // Sync store edges to local state when store changes externally
+  useEffect(() => {
+    if (isUpdatingFromStoreRef.current) return;
+    
+    if (edgesChanged(edges, lastSyncedEdgesRef.current)) {
+      isUpdatingFromStoreRef.current = true;
+      setLocalEdges(edges);
+      lastSyncedEdgesRef.current = edges;
+      
+      setTimeout(() => {
+        isUpdatingFromStoreRef.current = false;
+      }, 50);
+    }
+  }, [edges, setLocalEdges, edgesChanged]);
+  
+  // Sync local nodes to store (user interactions)
   React.useEffect(() => {
-    setEdges(localEdges);
-  }, [localEdges, setEdges]);
+    if (isUpdatingFromStoreRef.current) return;
+    
+    if (nodesChanged(localNodes, lastSyncedNodesRef.current)) {
+      lastSyncedNodesRef.current = localNodes;
+      setNodes(localNodes);
+    }
+  }, [localNodes, setNodes, nodesChanged]);
+  
+  // Sync local edges to store (user interactions)
+  React.useEffect(() => {
+    if (isUpdatingFromStoreRef.current) return;
+    
+    if (edgesChanged(localEdges, lastSyncedEdgesRef.current)) {
+      lastSyncedEdgesRef.current = localEdges;
+      setEdges(localEdges);
+    }
+  }, [localEdges, setEdges, edgesChanged]);
   
   const onConnect = useCallback(
     (params: Connection) => {

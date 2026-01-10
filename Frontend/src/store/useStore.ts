@@ -374,7 +374,12 @@ export const useStudioStore = create<StudioState>((set, get) => ({
 
   setNodes: (nodes) => {
     // Create a new array with updated nodes to ensure React re-renders
-    const newNodes = [...nodes];
+    // Use structuredClone for deep copy to avoid reference issues
+    const newNodes = nodes.map(node => ({
+      ...node,
+      data: { ...node.data },
+      position: { ...node.position }
+    }));
     set({ nodes: newNodes });
     get().calculateCosts(); // Recalculate costs when nodes change
     get().generateTerraform();
