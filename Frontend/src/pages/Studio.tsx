@@ -6,6 +6,7 @@ import AWSSidebar from '@/components/studio/AWSSidebar';
 import DiagramCanvas from '@/components/studio/DiagramCanvas';
 import TerraformEditor from '@/components/studio/TerraformEditor';
 import TextToCloud from '@/components/studio/TextToCloud';
+import DriftDetectionPanel from '@/components/studio/DriftDetectionPanel';
 import { useStudioStore } from '@/store/useStore';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -92,8 +93,9 @@ const Studio: React.FC = () => {
         <AWSSidebar />
         <div className="flex-1 flex flex-col">
           <div className="flex-1 flex">
-            <div className="w-1/3 p-4">
-              <TextToCloud className="h-full" />
+            <div className="w-1/3 p-4 space-y-4">
+              <TextToCloud className="h-1/2" />
+              <DriftDetectionPanel projectId={projectId || mongoProjectId || undefined} className="h-1/2" />
             </div>
             <DiagramCanvas />
           </div>

@@ -175,6 +175,29 @@ export const projectApi = {
     });
   },
 
+  // Detect infrastructure drift
+  detectDrift: async (id: string, awsCredentials: any): Promise<any> => {
+    return apiRequest<any>(`/projects/${id}/detect-drift`, {
+      method: 'POST',
+      body: JSON.stringify({ awsCredentials }),
+    });
+  },
+
+  // Get drift history
+  getDriftHistory: async (id: string): Promise<any> => {
+    return apiRequest<any>(`/projects/${id}/drift-history`, {
+      method: 'GET',
+    });
+  },
+
+  // Compare current state with expected configuration
+  compareState: async (id: string, awsCredentials: any): Promise<any> => {
+    return apiRequest<any>(`/projects/${id}/compare-state`, {
+      method: 'POST',
+      body: JSON.stringify({ awsCredentials }),
+    });
+  },
+
   // Delete a project
   delete: async (id: string): Promise<{ success: boolean; message: string }> => {
     return apiRequest<{ success: boolean; message: string }>(`/projects/${id}`, {
