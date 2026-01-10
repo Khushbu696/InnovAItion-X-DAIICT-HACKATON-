@@ -14,7 +14,7 @@ interface GradientButtonProps {
   type?: 'button' | 'submit' | 'reset';
 }
 
-const GradientButton: React.FC<GradientButtonProps> = ({ 
+const GradientButton = React.forwardRef<HTMLButtonElement, GradientButtonProps>(({ 
   variant = 'primary', 
   size = 'md', 
   children, 
@@ -24,7 +24,7 @@ const GradientButton: React.FC<GradientButtonProps> = ({
   disabled,
   onClick,
   type = 'button',
-}) => {
+}, ref) => {
   const baseStyles = 'relative inline-flex items-center justify-center font-medium transition-all duration-300 rounded-xl overflow-hidden';
   
   const variants = {
@@ -42,6 +42,7 @@ const GradientButton: React.FC<GradientButtonProps> = ({
   
   return (
     <motion.button
+      ref={ref}
       type={type}
       whileHover={{ scale: disabled ? 1 : 1.02 }}
       whileTap={{ scale: disabled ? 1 : 0.98 }}
@@ -69,6 +70,8 @@ const GradientButton: React.FC<GradientButtonProps> = ({
       </span>
     </motion.button>
   );
-};
+});
+
+GradientButton.displayName = 'GradientButton';
 
 export { GradientButton };

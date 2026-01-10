@@ -132,36 +132,41 @@ const DriftDetectionPanel: React.FC<DriftDetectionPanelProps> = ({ projectId, cl
   };
 
   return (
-    <Card className={cn("bg-glass border-glass-border", className)}>
-      <CardHeader className="pb-3">
+    <div className={cn("flex flex-col gap-4", className)}>
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-destructive/10 rounded-lg">
+            <div className="p-1.5 bg-destructive/10 rounded-md">
               <ShieldAlert className="w-4 h-4 text-destructive" />
             </div>
-            <CardTitle className="text-sm font-semibold">Drift Detection</CardTitle>
+            <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground/80">
+              Drift Detection
+            </h3>
           </div>
-          <Badge variant={driftStatus === 'drift-found' ? 'destructive' : driftStatus === 'no-drift' ? 'success' : 'default'}>
-            {getStatusIcon()}
-            <span className="ml-1 capitalize">{getStatusText()}</span>
+          <Badge 
+            variant={driftStatus === 'drift-found' ? 'destructive' : driftStatus === 'no-drift' ? 'success' : 'secondary'}
+            className="text-[10px] px-1.5 py-0 h-5"
+          >
+            <span className="capitalize">{getStatusText()}</span>
           </Badge>
         </div>
-        <CardDescription className="text-xs">
-          Monitor unauthorized changes to your infrastructure
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        
+        <div className="bg-sidebar-accent/30 rounded-lg p-3 border border-sidebar-border/50">
+          <p className="text-[11px] text-muted-foreground leading-relaxed mb-3">
+            Monitor unauthorized changes and state drift in your deployed infrastructure.
+          </p>
+          
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/70">
               <Calendar className="w-3 h-3" />
-              <span>Last checked: {driftResults?.timestamp ? new Date(driftResults.timestamp).toLocaleString() : 'Never'}</span>
+              <span>{driftResults?.timestamp ? new Date(driftResults.timestamp).toLocaleDateString() : 'Never checked'}</span>
             </div>
+            
             <Dialog open={showCredentials} onOpenChange={setShowCredentials}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm" onClick={() => setShowCredentials(true)}>
-                  <ShieldAlert className="w-3 h-3 mr-1" />
-                  Check Now
+                <Button variant="default" size="sm" className="h-7 text-[10px] px-3 bg-destructive/80 hover:bg-destructive text-white border-none shadow-sm">
+                  <Activity className="w-3 h-3 mr-1.5" />
+                  Run Check
                 </Button>
               </DialogTrigger>
               <DialogContent>
@@ -311,6 +316,7 @@ const DriftDetectionPanel: React.FC<DriftDetectionPanelProps> = ({ projectId, cl
               </DialogContent>
             </Dialog>
           </div>
+        </div>
           
           {driftStatus === 'drift-found' && (
             <Alert variant="destructive">
@@ -330,8 +336,7 @@ const DriftDetectionPanel: React.FC<DriftDetectionPanelProps> = ({ projectId, cl
             </Alert>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
   );
 };
 
