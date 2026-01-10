@@ -4,17 +4,14 @@ import { motion } from 'framer-motion';
 import { Cloud, Menu, X, User, Settings } from 'lucide-react';
 import { GradientButton } from '@/components/ui/GradientButton';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/store/useAuthStore';
 
 const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = React.useState(false);
   const location = useLocation();
+  const { isAuthenticated } = useAuthStore();
   
   const isActive = (path: string) => location.pathname === path;
-  
-  const navLinks = [
-    { path: '/', label: 'Home' },
-    { path: '/dashboard', label: 'Dashboard' },
-  ];
   
   return (
     <motion.nav
@@ -42,33 +39,32 @@ const Navbar: React.FC = () => {
             </span>
           </Link>
           
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                className={cn(
-                  'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
-                  isActive(link.path)
-                    ? 'text-foreground bg-glass'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-glass/50'
-                )}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-          
           {/* Right Side */}
-          <div className="hidden md:flex items-center gap-3">
-            <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-glass/50 rounded-lg transition-all">
-              <Settings className="w-5 h-5" />
-            </button>
-            <div className="w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center">
-              <User className="w-4 h-4 text-primary-foreground" />
+          {isAuthenticated && (
+            <div className="hidden md:flex items-center gap-3">
+              <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-glass/50 rounded-lg transition-all">
+                <Settings className="w-5 h-5" />
+              </button>
+              <div className="w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center">
+                <User className="w-4 h-4 text-primary-foreground" />
+              </div>
             </div>
-          </div>
+          )}
+          
+          {!isAuthenticated && (
+            <div className="hidden md:flex items-center gap-3">
+              <Link to="/login">
+                <GradientButton variant="ghost" size="sm">
+                  Sign In
+                </GradientButton>
+              </Link>
+              <Link to="/signup">
+                <GradientButton size="sm">
+                  Get Started
+                </GradientButton>
+              </Link>
+            </div>
+          )}
           
           {/* Mobile Menu Button */}
           <button
@@ -89,21 +85,33 @@ const Navbar: React.FC = () => {
           className="md:hidden bg-background/95 backdrop-blur-xl border-b border-glass-border"
         >
           <div className="px-4 py-4 space-y-2">
-            {navLinks.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                onClick={() => setIsOpen(false)}
-                className={cn(
-                  'block px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200',
-                  isActive(link.path)
-                    ? 'text-foreground bg-glass'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-glass/50'
-                )}
-              >
-                {link.label}
-              </Link>
-            ))}
+            {isAuthenticated ? (
+              <>
+                <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-glass/50 transition-all">
+                  <Settings className="w-5 h-5" />
+                  Settings
+                </button>
+                <div className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground">
+                  <div className="w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center">
+                    <User className="w-4 h-4 text-primary-foreground" />
+                  </div>
+                  Profile
+                </div>
+              </>
+            ) : (
+              <>
+                <Link to="/login" onClick={() => setIsOpen(false)} className="block">
+                  <GradientButton variant="ghost" size="sm" className="w-full">
+                    Sign In
+                  </GradientButton>
+                </Link>
+                <Link to="/signup" onClick={() => setIsOpen(false)} className="block">
+                  <GradientButton size="sm" className="w-full">
+                    Get Started
+                  </GradientButton>
+                </Link>
+              </>
+            )}
           </div>
         </motion.div>
       )}
