@@ -38,6 +38,7 @@ interface StudioState {
   // UI state
   isSidebarCollapsed: boolean;
   isCodePanelCollapsed: boolean;
+  isToolsPanelCollapsed: boolean;
   
   // Actions
   setNodes: (nodes: Node[]) => void;
@@ -52,6 +53,7 @@ interface StudioState {
   setCostBreakdown: (breakdown: Record<string, number>) => void;
   toggleSidebar: () => void;
   toggleCodePanel: () => void;
+  toggleToolsPanel: () => void;
   updateNodeParent: (nodeId: string, parentId: string | null) => void;
   generateTerraform: () => void;
   calculateCosts: () => void;
@@ -397,6 +399,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   setCostBreakdown: (breakdown) => set({ costBreakdown: breakdown }),
   toggleSidebar: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
   toggleCodePanel: () => set((state) => ({ isCodePanelCollapsed: !state.isCodePanelCollapsed })),
+  toggleToolsPanel: () => set((state) => ({ isToolsPanelCollapsed: !state.isToolsPanelCollapsed })),
   updateNodeParent: (nodeId: string, parentId: string | null) => {
     set(state => ({
       nodes: state.nodes.map(node => 

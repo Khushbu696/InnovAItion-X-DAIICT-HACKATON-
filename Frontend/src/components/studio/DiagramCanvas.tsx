@@ -35,7 +35,18 @@ const DiagramCanvas: React.FC = () => {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = React.useState<ReactFlowInstance | null>(null);
   
-  const { nodes, edges, setNodes, setEdges, addNode, setSelectedNode } = useStudioStore();
+  const { 
+    nodes, 
+    edges, 
+    setNodes, 
+    setEdges, 
+    addNode, 
+    setSelectedNode,
+    isToolsPanelCollapsed,
+    isCodePanelCollapsed,
+    toggleToolsPanel,
+    toggleCodePanel
+  } = useStudioStore();
   
   const [localNodes, setLocalNodes, onNodesChange] = useNodesState(nodes);
   const [localEdges, setLocalEdges, onEdgesChange] = useEdgesState(edges);
@@ -206,7 +217,28 @@ const DiagramCanvas: React.FC = () => {
   const fitView = () => {
     reactFlowInstance?.fitView({ padding: 0.2 });
   };
-  
+
+  const toggleFullscreen = () => {
+    // If both panels are collapsed, expand them
+    // Otherwise, collapse both
+    const bothCollapsed = isToolsPanelCollapsed && isCodePanelCollapsed;
+    
+    if (bothCollapsed) {
+      // Expand both panels
+      if (isToolsPanelCollapsed) toggleToolsPanel();
+      if (isCodePanelCollapsed) toggleCodePanel();
+    } else {
+      // Collapse both panels
+      if (!isToolsPanelCollapsed) toggleToolsPanel();
+      if (!isCodePanelCollapsed) toggleCodePanel();
+    }
+    
+    // Also fit the view after toggling
+    setTimeout(() => {
+      reactFlowInstance?.fitView({ padding: 0.2 });
+    }, 350); // Wait for animation to complete
+  };
+
   return (
     <div ref={reactFlowWrapper} className="flex-1 h-full relative">
       <ReactFlow
@@ -249,12 +281,13 @@ const DiagramCanvas: React.FC = () => {
         />
       </ReactFlow>
       
-      {/* Fit View Button */}
+      {/* Fullscreen Toggle Button */}
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        onClick={fitView}
+        onClick={toggleFullscreen}
         className="absolute top-4 right-4 p-3 bg-glass border border-glass-border rounded-xl text-muted-foreground hover:text-foreground hover:bg-glass-highlight transition-all shadow-glass"
+        title={isToolsPanelCollapsed && isCodePanelCollapsed ? "Exit Fullscreen" : "Enter Fullscreen"}
       >
         <Maximize2 className="w-4 h-4" />
       </motion.button>
@@ -272,7 +305,7 @@ const DiagramCanvas: React.FC = () => {
             </div>
             <h3 className="text-lg font-semibold mb-2">Start Building</h3>
             <p className="text-muted-foreground text-sm max-w-xs">
-              Drag AWS resources from the sidebar to design your infrastructure
+              Drag AWS resources from the top bar to design your infrastructure
             </p>
           </motion.div>
         </div>

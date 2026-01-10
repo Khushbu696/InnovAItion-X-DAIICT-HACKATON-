@@ -2,11 +2,10 @@ import React, { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import StudioHeader from '@/components/studio/StudioHeader';
-import AWSSidebar from '@/components/studio/AWSSidebar';
+import AWSResourcesBar from '@/components/studio/AWSResourcesBar';
 import DiagramCanvas from '@/components/studio/DiagramCanvas';
 import TerraformEditor from '@/components/studio/TerraformEditor';
-import TextToCloud from '@/components/studio/TextToCloud';
-import DriftDetectionPanel from '@/components/studio/DriftDetectionPanel';
+import ToolsPanel from '@/components/studio/ToolsPanel';
 import { useStudioStore } from '@/store/useStore';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -90,16 +89,21 @@ const Studio: React.FC = () => {
       />
       
       <div className="flex-1 flex overflow-hidden">
-        <AWSSidebar />
-        <div className="flex-1 flex flex-col">
-          <div className="flex-1 flex">
-            <div className="w-1/3 p-4 space-y-4">
-              <TextToCloud className="h-1/2" />
-              <DriftDetectionPanel projectId={projectId || mongoProjectId || undefined} className="h-1/2" />
-            </div>
+        {/* Left Sidebar - AI Infrastructure Generator and Drift Detection (Collapsible) */}
+        <ToolsPanel projectId={projectId || mongoProjectId || undefined} />
+        
+        {/* Main Canvas Area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Horizontal AWS Resources Bar */}
+          <AWSResourcesBar />
+          
+          {/* Diagram Canvas */}
+          <div className="flex-1">
             <DiagramCanvas />
           </div>
         </div>
+        
+        {/* Right Sidebar - Terraform Editor */}
         <TerraformEditor />
       </div>
     </motion.div>
